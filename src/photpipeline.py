@@ -223,14 +223,18 @@ class PhotoMetryPipeLine(object):
     yy = df[["Y(FITS)_T1","Y(FITS)_C2","Y(FITS)_C3","Y(FITS)_C4","Y(FITS)_C5","Y(FITS)_C6","Y(FITS)_C7"]].ix[0].values
     PMI.perform_photometry_window_centroid(xx,yy,method="centroid_com")
     """
-    def __init__(self,filenames,xcenters,ycenters,method="centroid_com"):
+    def __init__(self,filenames,xcenters,ycenters,r_aper=34.,r_annulus1=60.,r_annulus2=90.,box_size=80.,method="centroid_com"):
         #self.foldername = foldername
         #self.regex = regex
         self.filenames = filenames
         self.numfiles = len(self.filenames)
         self.xcenters = xcenters
         self.ycenters = ycenters
-        self.method   = method
+        self.r_aper = r_aper
+        self.r_annulus1 = r_annulus1
+        self.r_annulus2 = r_annulus2
+        self.method = method
+        self.box_size = box_size
         
     def run_pipeline(self,remove_cosmics=False):
         """
@@ -245,31 +249,33 @@ class PhotoMetryPipeLine(object):
         # Loop over files
         for i,filename in enumerate(self.filenames):
             PMI = PhotoMetryImage(self.filenames[i])
-            print("Analyzing file #",i,PMI.basename)
+            print("Analyzing file #",i,PMI.basename,"with r=",self.r_aper,self.r_annulus1,self.r_annulus2)
 
             # This can only be done before calibration
             if remove_cosmics:
                 PMI.remove_cosmics()
                         
             if i==0:
-                self.df_master = PMI.perform_photometry_window_centroid(self.xcenters,self.ycenters,method=self.method)
+                self.df_master = PMI.perform_photometry_window_centroid(self.xcenters,self.ycenters,r_aper=self.r_aper,r_annulus1=self.r_annulus1,r_annulus2=self.r_annulus2,box_size=self.box_size,method=self.method)
                 self.df_master = self.df_master.reset_index(drop=True)
             else:
-                # Perform windowed centroiding, using previous centroid
-                xkeys = [key for key in self.df_master if "X(FITS)_" in key]
-                ykeys = [key for key in self.df_master if "Y(FITS)_" in key]
-                xcenter = self.df_master[xkeys].ix[i-1].values  
-                ycenter = self.df_master[ykeys].ix[i-1].values  
-                df_temp = PMI.perform_photometry_window_centroid(xcenter,ycenter,method=self.method)
+                ## Perform windowed centroiding, using previous centroid
+                #xkeys = [key for key in self.df_master if "X(FITS)_" in key]
+                #ykeys = [key for key in self.df_master if "Y(FITS)_" in key]
+                #xcenter = self.df_master[xkeys].ix[i-1].values  
+                #ycenter = self.df_master[ykeys].ix[i-1].values  
+                df_temp = PMI.perform_photometry_window_centroid(self.xcenters,self.ycenters,r_aper=self.r_aper,r_annulus1=self.r_annulus1,r_annulus2=self.r_annulus2,box_size=self.box_size,method=self.method)
+                #df_temp = PMI.perform_photometry_window_centroid(xcenter,ycenter,r_annulus1=self.r_annulus1,r_annulus2=self.r_annulus2,box_size=self.box_size,method=self.method)
                 self.df_master = pd.concat([self.df_master,df_temp])
                 self.df_master = self.df_master.reset_index(drop=True)
-
-                # OLD
-                #xx = self.df_master[["X(FITS)_T1","X(FITS)_C2","X(FITS)_C3","X(FITS)_C4","X(FITS)_C5","X(FITS)_C6","X(FITS)_C7"]].ix[i-1].values
-                #yy = self.df_master[["Y(FITS)_T1","Y(FITS)_C2","Y(FITS)_C3","Y(FITS)_C4","Y(FITS)_C5","Y(FITS)_C6","Y(FITS)_C7"]].ix[i-1].values
-                #df_temp = PMI.perform_photometry_window_centroid(xx,yy,method="centroid_com")
         
         return self.df_master
+
+    def save_photometry(self,outputname=""):
+        if outputname=="":
+            outputname = "phot_results_"+str(self.r_aper)+"_"+str(self.r_annulus1)+"_"+str(self.r_annulus2)+".csv"
+        self.df_master.to_csv(outputname,index=False)
+        print("Saved file to:",outputname)
     
     def plot_photometry(self):
         self.fig, self.ax = plt.subplots()
