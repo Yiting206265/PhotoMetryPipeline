@@ -316,6 +316,7 @@ class PhotoMetryPipeLine(object):
         time=self.df_master[["JD_UTC"]]
         self.fig, self.ax = plt.subplots(nrows=2,sharex=True)
         list_cen=["X(FITS)_T1","Y(FITS)_T1"]
+        """
         for i in np.arange(0,2):
             if i==0:
                 x_cen=self.df_master[list_cen[i]]
@@ -341,7 +342,7 @@ class PhotoMetryPipeLine(object):
                 self.ax[i].legend(prop={'size':8})
             self.ax[i].set_ylabel(list_cen[i])
         plt.savefig("./centroids_AIJ.png",format='png')
-        
+        """
         for i in np.arange(0,2):
             if i==0:
                 x_cen=df_pos[list_cen[i]]-self.df_master[list_cen[i]]
