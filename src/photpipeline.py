@@ -62,8 +62,35 @@ class PhotoMetryImage(FitsImage):
         """
         self.fig, self.ax = plt.subplots()
         self.ax.plot(phot_table)
+
+    def howell_center(self,postage_stamp):
+        """
+        Howell centroiding, from Howell's Handbook of CCD astronomy
+
+        INPUT:
+         postage_stamp - A 2d numpy array to do the centroiding
+
+        OUTPUT:
+         x and y center of the numpy array
+
+        NOTES:
+        Many thanks to Thomas Beatty and the MINERVAphot.py pipeline for this method
+        see here: https://github.com/TGBeatty/MINERVAphot/blob/master/MINERVAphot.py
+        """
+        xpixels = np.arange(postage_stamp.shape[1])
+        ypixels = np.arange(postage_stamp.shape[0])
+        I = np.sum(postage_stamp, axis=0)
+        J = np.sum(postage_stamp, axis=1)
+
+        Isub = I-np.sum(I)/I.size
+        Isub[Isub<0] = 0
+        Jsub = J-np.sum(J)/J.size
+        Jsub[Jsub<0] = 0
+        xc = np.sum(Isub*xpixels)/np.sum(Isub)
+        yc = np.sum(Jsub*ypixels)/np.sum(Jsub)
+        return xc, yc
                 
-    def get_centroid_cutout(self,x,y,box_size=30,method="daofind",dao_fwhm=10.,dao_SNR=100.,plot=False,plot_full=False,stretch=None):
+    def get_centroid_cutout(self,x,y,box_size=30,method="howell",dao_fwhm=10.,dao_SNR=100.,plot=False,plot_full=False,stretch=None):
         """
         Perform centroiding on a cutout window.
         
@@ -107,8 +134,10 @@ class PhotoMetryImage(FitsImage):
             sources = daofind(postage_stamp)
             positions = (sources['xcentroid'], sources['ycentroid']) 
             x_stamp_centroid, y_stamp_centroid = float(positions[0]),float(positions[1])
+        elif method=="howell":
+            x_stamp_centroid, y_stamp_centroid = self.howell_center(postage_stamp)
         else:
-            print("Error: method must be 'daofind', centroid_2dg' or 'centroid_com'")
+            print("Error: method must be 'daofind', centroid_2dg', 'centroid_com' or 'howell'")
             pass
         x_centroid = x_stamp_centroid + int_x - box_size/2.
         y_centroid = y_stamp_centroid + int_y - box_size/2.
@@ -134,7 +163,7 @@ class PhotoMetryImage(FitsImage):
         return x_centroid, y_centroid
         
     def perform_photometry_window_centroid(self,xcen,ycen,r_aper=34.,r_annulus1=60.,r_annulus2=90.,
-                                           box_size=80.,method="centroid_com"):
+                                           box_size=80.,method="howell"):
         """
         Perform the photometry by window centroiding
 
