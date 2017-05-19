@@ -231,6 +231,13 @@ class PhotoMetryImage(FitsImage):
         df["tot_C_cnts"] = df[self.source_sky_C_keys].sum().sum()
         df["rel_flux_T1"]= df["Source-Sky_T1"]/df["tot_C_cnts"]
         
+        for i in range(len(xcen)):
+            if i==0:
+                TorC = "T"
+            else:
+                TorC = "C"
+            df["rel_flux_"+TorC+str(i+1)]=df["Source-Sky_"+TorC+str(i+1)]/df["tot_C_cnts"]
+            
         peak_flux = np.max(df[[key for key in df.keys() if "Peak" in key]].values)
         if peak_flux > self.saturation_warning_threshold:
             df["Saturated"] = peak_flux
@@ -306,10 +313,100 @@ class PhotoMetryPipeLine(object):
         self.df_master.to_csv(outputname,index=False)
         print("Saved file to:",outputname)
     
+      
+    def rel_flux_residuals(self):
+        df_pos = pd.read_csv("../data/Processed_science_2x2_binning_sdssi_fast_diff_measurements.xls",sep="\t")
+        df_pos=df_pos[0:200]
+        time=self.df_master[["JD_UTC"]]
+        self.fig, self.ax = plt.subplots(nrows=3,sharex=True)#,figsize=(8,8))
+        list_name=['rel_flux_T1_AIJ','rel_flux_T1_Pipline','Residuals']
+        for i in np.arange(0,3):
+            if i==0:
+                normalized_flux_AIJ=df_pos["rel_flux_T1"]/np.nanmean(df_pos["rel_flux_T1"])
+                self.ax[i].scatter(time,normalized_flux_AIJ,marker='.',color='r',label='AIJ result')
+                self.ax[i].legend(prop={'size':8})
+                self.ax[i].set_title("Relative flux vs. Time")
+            if i==1:
+                normalized_flux_Pipeline=self.df_master['rel_flux_T1']/np.nanmean(self.df_master['rel_flux_T1'])
+                self.ax[i].scatter(time,normalized_flux_Pipeline,marker='.',color='b',label='Pipeline result')
+                self.ax[i].legend(prop={'size':8})
+            if i==2:
+                residuals=df_pos["rel_flux_T1"]/np.nanmean(df_pos["rel_flux_T1"])-self.df_master['rel_flux_T1']/np.nanmean(self.df_master['rel_flux_T1'])
+                self.ax[i].scatter(time,residuals,marker='.',color='g',label='Residuals: AIJ - Pipeline')
+                self.ax[i].legend(prop={'size':8})
+            self.ax[i].set_ylabel(list_name[i])
+        #plt.savefig("./",format='png')    
+         
+            
+    def plot_X_and_Y(self):
+        #should change this to a double for-loop
+        df_pos = pd.read_csv("../data/Processed_science_2x2_binning_sdssi_fast_diff_measurements.xls",sep="\t")
+        df_pos=df_pos[0:200]
+        time=self.df_master[["JD_UTC"]]
+        self.fig, self.ax = plt.subplots(nrows=2,sharex=True)
+        list_cen=["X(FITS)_T1","Y(FITS)_T1"]
+        """
+        for i in np.arange(0,2):
+            if i==0:
+                x_cen=self.df_master[list_cen[i]]
+                self.ax[i].scatter(time,x_cen,marker='.',color='g',label='X centroid')
+                self.ax[i].legend(prop={'size':8})
+                self.ax[i].set_title("X and Y Centroids from Pipeline")
+            if i==1:
+                y_cen=self.df_master[list_cen[i]]
+                self.ax[i].scatter(time,y_cen,marker='.',color='b',label='Y centroid')
+                self.ax[i].legend(prop={'size':8})
+            self.ax[i].set_ylabel(list_cen[i])
+        plt.savefig("./centroids_pipeline.png",format='png')
+        
+        for i in np.arange(0,2):
+            if i==0:
+                x_cen=df_pos[list_cen[i]]
+                self.ax[i].scatter(time,x_cen,marker='.',color='g',label='X centroid')
+                self.ax[i].legend(prop={'size':8})
+                self.ax[i].set_title("X and Y Centroids from AIJ")
+            if i==1:
+                y_cen=df_pos[list_cen[i]]
+                self.ax[i].scatter(time,y_cen,marker='.',color='b',label='Y centroid')
+                self.ax[i].legend(prop={'size':8})
+            self.ax[i].set_ylabel(list_cen[i])
+        plt.savefig("./centroids_AIJ.png",format='png')
+        """
+        for i in np.arange(0,2):
+            if i==0:
+                x_cen=df_pos[list_cen[i]]-self.df_master[list_cen[i]]
+                self.ax[i].scatter(time,x_cen,marker='.',color='g',label='X centroid')
+                self.ax[i].legend(prop={'size':8})
+                self.ax[i].set_title("X and Y Residuals")
+            if i==1:
+                y_cen=df_pos[list_cen[i]]-self.df_master[list_cen[i]]
+                self.ax[i].scatter(time,y_cen,marker='.',color='b',label='Y centroid')
+                self.ax[i].legend(prop={'size':8})
+            self.ax[i].set_ylabel(list_cen[i])
+        plt.savefig("./centroids_difference.png",format='png')
+        
     def plot_photometry(self):
-        self.fig, self.ax = plt.subplots()
+        time=self.df_master[["JD_UTC"]]
+        list_rel_flux = ["rel_flux_T1","rel_flux_C2","rel_flux_C3","rel_flux_C4","rel_flux_C5","rel_flux_C6"]
+        #plot the raw photometry of the target star and reference stars
+        num_refstars=5
+        nrows=num_refstars+1
+        self.fig, self.ax = plt.subplots(nrows=nrows,sharex=True,figsize=(8,8))
+        
+        for i in np.arange(0,nrows):
+            if i==0:
+                self.ax[i].scatter(time,self.df_master[list_rel_flux[i]]/np.nanmean(self.df_master[list_rel_flux[i]]),marker='.',color='r')
+                self.ax[i].set_title("Photometry")
+            else:
+                self.ax[i].scatter(time,self.df_master[list_rel_flux[i]]/np.nanmean(self.df_master[list_rel_flux[i]]),marker='.')
+            self.ax[i].set_ylabel(list_rel_flux[i])
+        self.ax[num_refstars].set_xlabel("JD_UTC")
+        #self.ax[i].ticklabel_format(axis='y', style='sci', scilimits=(-2,2))
+        self.fig.tight_layout()
 
 
+        
+        
 
 
 ################## 
